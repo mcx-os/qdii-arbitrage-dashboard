@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QDII ETF/LOF 套利分析看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans SC', sans-serif; }
+        .glass { background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); }
+        .card-hover { transition: all 0.2s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); }
+        .premium-high { color: #dc2626; }
+        .premium-mid { color: #ea580c; }
+        .premium-low { color: #16a34a; }
+        .bg-premium-high { background: #fef2f2; border: 1px solid #fecaca; }
+        .bg-premium-mid { background: #fff7ed; border: 1px solid #fed7aa; }
+        .bg-premium-low { background: #f0fdf4; border: 1px solid #bbf7d0; }
+        .sort-btn { cursor: pointer; user-select: none; }
+        .sort-btn:hover { background: #f3f4f6; }
+        .tag { font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 9999px; font-weight: 500; }
+        .tag-etf { background: #eff6ff; color: #1e40af; border: 1px solid #dbeafe; }
+        .tag-lof { background: #f5f3ff; color: #5b21b6; border: 1px solid #e9d5ff; }
+        .tag-suspended { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .tag-limited { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+        .tag-open { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+        .animate-fade-in { animation: fadeIn 0.6s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+    <!-- Header -->
+    <header class="sticky top-0 z-50 glass border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">Q</div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900">QDII ETF/LOF 套利分析看板</h1>
+                    <p class="text-xs text-slate-500">基于底层持仓与海外市场涨跌幅估算</p>
+                </div>
+            </div>
+            <div class="text-right hidden sm:block">
+                <p class="text-sm font-semibold text-slate-900">2026-07-06 周一</p>
+                <p class="text-xs text-slate-500">分析生成：2026-07-05 09:00 (北京时间)</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <!-- Market Overview -->
+        <section class="animate-fade-in">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold text-slate-900">海外市场概况（2026-07-02 收盘）</h2>
+                <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">美股因独立日 7/3-7/4 休市</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div class="bg-white rounded-xl p-4 border border-slate-200 card-hover">
+                    <p class="text-xs text-slate-500 mb-1">道琼斯</p>
+                    <p class="text-lg font-bold text-red-600">+1.14%</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-slate-200 card-hover">
+                    <p class="text-xs text-slate-500 mb-1">标普500</p>
+                    <p class="text-lg font-bold text-slate-600">-0.01%</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-slate-200 card-hover">
+                    <p class="text-xs text-slate-500 mb-1">纳斯达克100</p>
+                    <p class="text-lg font-bold text-green-600">-0.80%</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-slate-200 card-hover">
+                    <p class="text-xs text-slate-500 mb-1">德国DAX</p>
+                    <p class="text-lg font-bold text-red-600">+0.01%</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-slate-200 card-hover">
+                    <p class="text-xs text-slate-500 mb-1">WTI原油</p>
+                    <p class="text-lg font-bold text-green-600">-0.04%</p>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-slate-200 card-hover">
+                    <p class="text-xs text-slate-500 mb-1">USDCNH</p>
+                    <p class="text-lg font-bold text-slate-700">6.7846</p>
+                    <p class="text-xs text-slate-400">人民币小幅升值</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Top Opportunities -->
+        <section class="animate-fade-in">
+            <h2 class="text-lg font-bold text-slate-900 mb-3">重点套利机会</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="top-cards">
+                <!-- Filled by JS -->
+            </div>
+        </section>
+
+        <!-- Chart -->
+        <section class="bg-white rounded-xl border border-slate-200 p-5 animate-fade-in">
+            <h2 class="text-lg font-bold text-slate-900 mb-4">估算溢价率分布</h2>
+            <div id="chart-premium" style="width:100%; height:420px;"></div>
+        </section>
+
+        <!-- Strategy Panel -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fade-in">
+            <div class="bg-white rounded-xl border border-slate-200 p-5">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-sm font-bold">1</span>
+                    <h3 class="font-bold text-slate-900">底仓高溢价卖出</h3>
+                </div>
+                <p class="text-sm text-slate-600 mb-3">已持有高溢价品种的投资者，可在二级市场卖出高溢价ETF/LOF，同时买入低溢价或折价同类基金。</p>
+                <ul class="text-sm space-y-1.5 text-slate-600">
+                    <li class="flex justify-between"><span class="text-slate-500">卖出 159509</span><span class="font-medium text-red-600">溢价 19.27%</span></li>
+                    <li class="flex justify-between"><span class="text-slate-500">卖出 513310</span><span class="font-medium text-red-600">溢价 17.22%</span></li>
+                    <li class="flex justify-between"><span class="text-slate-500">买入 160644</span><span class="font-medium text-green-600">溢价 2.68%</span></li>
+                    <li class="flex justify-between"><span class="text-slate-500">买入 513180</span><span class="font-medium text-green-600">折价 -0.49%</span></li>
+                </ul>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">2</span>
+                    <h3 class="font-bold text-slate-900">LOF申购套利</h3>
+                </div>
+                <p class="text-sm text-slate-600 mb-3">场内申购LOF，T+2日到账后卖出，赚取溢价差。需扣除申购费（1.0-1.5%）与交易佣金。</p>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between p-2 rounded bg-slate-50">
+                        <span class="text-sm">161226 国投白银LOF</span>
+                        <span class="text-xs tag tag-limited">限额100元</span>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded bg-slate-50">
+                        <span class="text-sm">161130 纳斯达克100LOF</span>
+                        <span class="text-xs tag tag-open">需确认</span>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded bg-red-50">
+                        <span class="text-sm">501225 全球芯片LOF</span>
+                        <span class="text-xs tag tag-suspended">暂停申购</span>
+                    </div>
+                    <div class="flex items-center justify-between p-2 rounded bg-red-50">
+                        <span class="text-sm">501018 南方原油LOF</span>
+                        <span class="text-xs tag tag-suspended">暂停申购</span>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-5">
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm font-bold">3</span>
+                    <h3 class="font-bold text-slate-900">折价买入</h3>
+                </div>
+                <p class="text-sm text-slate-600 mb-3">二级市场交易价格低于估算净值时，可直接场内买入，等待溢价回归。</p>
+                <div class="p-3 rounded-lg bg-green-50 border border-green-200">
+                    <p class="font-medium text-green-800">513180 标普500信息科技ETF</p>
+                    <p class="text-sm text-green-700 mt-1">估算折价 <span class="font-bold">-0.49%</span></p>
+                    <p class="text-xs text-green-600 mt-1">适合长期看好美股科技龙头的投资者直接配置</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Table -->
+        <section class="bg-white rounded-xl border border-slate-200 p-5 animate-fade-in">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <h2 class="text-lg font-bold text-slate-900">完整基金数据</h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="filterType('all')" class="filter-btn px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white font-medium" data-type="all">全部</button>
+                    <button onclick="filterType('ETF')" class="filter-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600 font-medium" data-type="ETF">ETF</button>
+                    <button onclick="filterType('LOF')" class="filter-btn px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-600 font-medium" data-type="LOF">LOF</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
+                            <th class="text-left py-3 px-2">代码</th>
+                            <th class="text-left py-3 px-2">名称</th>
+                            <th class="text-left py-3 px-2">类型</th>
+                            <th class="text-left py-3 px-2">跟踪标的</th>
+                            <th class="text-right py-3 px-2 cursor-pointer sort-btn" onclick="sortBy('close')">收盘价</th>
+                            <th class="text-right py-3 px-2 cursor-pointer sort-btn" onclick="sortBy('a_chg')">A股涨跌</th>
+                            <th class="text-right py-3 px-2 cursor-pointer sort-btn" onclick="sortBy('latest_nav')">最新净值</th>
+                            <th class="text-right py-3 px-2 cursor-pointer sort-btn" onclick="sortBy('est_nav')">估算净值</th>
+                            <th class="text-right py-3 px-2 cursor-pointer sort-btn" onclick="sortBy('premium')">估算溢价率</th>
+                            <th class="text-left py-3 px-2">申购状态</th>
+                            <th class="text-left py-3 px-2">策略</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fund-table-body" class="divide-y divide-slate-100">
+                        <!-- Filled by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Risk Warning -->
+        <section class="bg-amber-50 rounded-xl border border-amber-200 p-5 animate-fade-in">
+            <h2 class="text-lg font-bold text-amber-900 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                风险提示
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-amber-800">
+                <div class="space-y-1">
+                    <p><strong>T+2时间差：</strong>LOF申购T+2日到账，期间美股可能大幅波动，侵蚀套利空间。</p>
+                    <p><strong>外汇额度限制：</strong>501225、501018等已暂停申购；多数LOF限额100元/日。</p>
+                    <p><strong>交易所停牌：</strong>159509、513310等高溢价品种可能盘中临时停牌（9:15-10:30）。</p>
+                </div>
+                <div class="space-y-1">
+                    <p><strong>汇率侵蚀：</strong>USDCNH从年初6.96降至6.78，人民币升值持续侵蚀美元资产回报。</p>
+                    <p><strong>流动性风险：</strong>501225日成交仅约4500万，大额卖出可能冲击价格。</p>
+                    <p><strong>数据偏差：</strong>估算净值基于公开数据，实际基金公司公布净值可能略有差异。</p>
+                </div>
+            </div>
+            <p class="text-xs text-amber-700 mt-3 pt-3 border-t border-amber-200">免责声明：本看板基于公开市场数据估算，不构成投资建议。实际操作前请通过基金公司官网或券商确认最新净值、申购限额及交易费用。</p>
+        </section>
+    </main>
+
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-slate-400">
+        <p>数据来源：ifind 行情、天天基金网、东方财富、公开市场信息 | 仅用于研究参考</p>
+    </footer>
+
+    <script>
+        // 基金数据（完整24条）
+        const fundData = [
+            {"code":"501225","name":"全球芯片LOF","track":"全球芯片","type":"LOF","close":4.507,"a_chg":0.18,"nav_date":"2026-07-02","latest_nav":3.3602,"est_nav":3.3283,"premium":35.42},
+            {"code":"159509","name":"纳指科技ETF景顺","track":"纳指科技","type":"ETF","close":2.616,"a_chg":0.81,"nav_date":"2026-07-02","latest_nav":2.2144,"est_nav":2.1934,"premium":19.27},
+            {"code":"513310","name":"中韩半导体ETF","track":"半导体","type":"ETF","close":6.13,"a_chg":2.66,"nav_date":"2026-07-03","latest_nav":5.2295,"est_nav":5.2295,"premium":17.22},
+            {"code":"161226","name":"国投白银LOF","track":"白银","type":"LOF","close":1.948,"a_chg":8.71,"nav_date":"2026-07-03","latest_nav":1.7069,"est_nav":1.7069,"premium":14.13},
+            {"code":"159501","name":"纳指ETF嘉实","track":"纳指100","type":"ETF","close":2.063,"a_chg":0.19,"nav_date":"2026-07-02","latest_nav":1.8707,"est_nav":1.8529,"premium":11.34},
+            {"code":"159696","name":"纳指ETF易方达","track":"纳指100","type":"ETF","close":2.02,"a_chg":0.45,"nav_date":"2026-07-02","latest_nav":1.8537,"est_nav":1.8361,"premium":10.02},
+            {"code":"513100","name":"纳指ETF国泰","track":"纳指100","type":"ETF","close":2.167,"a_chg":0.42,"nav_date":"2026-07-02","latest_nav":1.992,"est_nav":1.9731,"premium":9.83},
+            {"code":"159941","name":"纳指ETF广发","track":"纳指100","type":"ETF","close":1.622,"a_chg":0.5,"nav_date":"2026-07-02","latest_nav":1.493,"est_nav":1.4788,"premium":9.68},
+            {"code":"513300","name":"纳斯达克ETF华夏","track":"纳指100","type":"ETF","close":2.669,"a_chg":0.45,"nav_date":"2026-07-02","latest_nav":2.4799,"est_nav":2.4563,"premium":8.66},
+            {"code":"159659","name":"纳斯达克100ETF","track":"纳指100","type":"ETF","close":2.31,"a_chg":0.52,"nav_date":"2026-07-02","latest_nav":2.1502,"est_nav":2.1298,"premium":8.46},
+            {"code":"159660","name":"纳指ETF汇添富","track":"纳指100","type":"ETF","close":2.337,"a_chg":0.47,"nav_date":"2026-07-02","latest_nav":2.1763,"est_nav":2.1556,"premium":8.41},
+            {"code":"513870","name":"纳指ETF富国","track":"纳指100","type":"ETF","close":2.036,"a_chg":0.69,"nav_date":"2026-07-02","latest_nav":1.8967,"est_nav":1.8787,"premium":8.37},
+            {"code":"513390","name":"纳指100ETF博时","track":"纳指100","type":"ETF","close":2.395,"a_chg":0.63,"nav_date":"2026-07-02","latest_nav":2.2342,"est_nav":2.213,"premium":8.23},
+            {"code":"513110","name":"纳斯达克100ETF","track":"纳指100","type":"ETF","close":2.445,"a_chg":0.33,"nav_date":"2026-07-02","latest_nav":2.2876,"est_nav":2.2659,"premium":7.91},
+            {"code":"159513","name":"纳斯达克100ETF大成","track":"纳指100","type":"ETF","close":1.776,"a_chg":0.34,"nav_date":"2026-07-02","latest_nav":1.6639,"est_nav":1.6481,"premium":7.76},
+            {"code":"161130","name":"纳斯达克100LOF","track":"纳指100","type":"LOF","close":4.614,"a_chg":0.33,"nav_date":"2026-07-02","latest_nav":4.4357,"est_nav":4.3936,"premium":5.02},
+            {"code":"159612","name":"标普500ETF","track":"标普500","type":"ETF","close":1.974,"a_chg":1.28,"nav_date":"2026-07-02","latest_nav":1.8909,"est_nav":1.8879,"premium":4.56},
+            {"code":"513500","name":"标普500ETF博时","track":"标普500","type":"ETF","close":2.503,"a_chg":0.81,"nav_date":"2026-07-02","latest_nav":2.4096,"est_nav":2.4057,"premium":4.04},
+            {"code":"159985","name":"豆粕ETF华夏","track":"豆粕","type":"ETF","close":2.065,"a_chg":-0.05,"nav_date":"2026-07-03","latest_nav":1.9874,"est_nav":1.9874,"premium":3.9},
+            {"code":"501018","name":"南方原油LOF","track":"原油","type":"LOF","close":1.505,"a_chg":2.31,"nav_date":"2026-07-02","latest_nav":1.4536,"est_nav":1.4508,"premium":3.73},
+            {"code":"513650","name":"标普500ETF南方","track":"标普500","type":"ETF","close":1.895,"a_chg":1.23,"nav_date":"2026-07-02","latest_nav":1.8354,"est_nav":1.8325,"premium":3.41},
+            {"code":"160644","name":"纳指100LOF","track":"纳指100","type":"LOF","close":1.972,"a_chg":0.1,"nav_date":"2026-07-02","latest_nav":1.939,"est_nav":1.9206,"premium":2.68},
+            {"code":"160723","name":"嘉实原油LOF","track":"原油","type":"LOF","close":1.703,"a_chg":2.1,"nav_date":"2026-07-02","latest_nav":1.6721,"est_nav":1.6689,"premium":2.04},
+            {"code":"513180","name":"标普500信息科技ETF","track":"标普500信息科技","type":"ETF","close":0.57,"a_chg":1.06,"nav_date":"2026-07-03","latest_nav":0.5728,"est_nav":0.5728,"premium":-0.49}
+        ];
+
+        const statusMap = {
+            "501225": {text: "暂停申购", class: "tag-suspended"},
+            "501018": {text: "暂停申购", class: "tag-suspended"},
+            "159509": {text: "多次暂停", class: "tag-suspended"},
+            "161226": {text: "限额100元", class: "tag-limited"},
+            "159696": {text: "7/6恢复", class: "tag-limited"},
+            "513310": {text: "曾暂停", class: "tag-limited"},
+        };
+
+        let currentData = [...fundData];
+        let sortKey = 'premium';
+        let sortDesc = true;
+        let currentFilter = 'all';
+
+        function getStatus(code) {
+            return statusMap[code] || {text: "需确认", class: "tag-open"};
+        }
+
+        function getStrategy(row) {
+            if (row.premium > 15) return {text: '高溢价卖出', class: 'text-red-600 font-medium'};
+            if (row.premium > 8) return {text: '底仓套利', class: 'text-orange-600 font-medium'};
+            if (row.premium > 3 && row.type === 'LOF') return {text: 'LOF申购', class: 'text-blue-600 font-medium'};
+            if (row.premium < 0) return {text: '折价买入', class: 'text-green-600 font-medium'};
+            if (row.premium > 3) return {text: '关注', class: 'text-slate-500'};
+            return {text: '持有', class: 'text-slate-400'};
+        }
+
+        function premiumClass(p) {
+            if (p > 15) return 'premium-high';
+            if (p > 5) return 'premium-mid';
+            if (p < 0) return 'premium-low';
+            return 'text-slate-600';
+        }
+
+        function premiumBg(p) {
+            if (p > 15) return 'bg-premium-high';
+            if (p > 5) return 'bg-premium-mid';
+            if (p < 0) return 'bg-premium-low';
+            return '';
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('fund-table-body');
+            tbody.innerHTML = '';
+            currentData.forEach(row => {
+                const st = getStatus(row.code);
+                const strat = getStrategy(row);
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="py-3 px-2 font-mono font-medium text-slate-900">${row.code}</td>
+                    <td class="py-3 px-2 font-medium text-slate-900">${row.name}</td>
+                    <td class="py-3 px-2"><span class="tag ${row.type === 'ETF' ? 'tag-etf' : 'tag-lof'}">${row.type}</span></td>
+                    <td class="py-3 px-2 text-slate-600">${row.track}</td>
+                    <td class="py-3 px-2 text-right font-mono">${row.close.toFixed(3)}</td>
+                    <td class="py-3 px-2 text-right font-mono ${row.a_chg > 0 ? 'text-red-600' : row.a_chg < 0 ? 'text-green-600' : 'text-slate-600'}">${row.a_chg > 0 ? '+' : ''}${row.a_chg.toFixed(2)}%</td>
+                    <td class="py-3 px-2 text-right font-mono text-slate-600">${row.latest_nav.toFixed(4)}</td>
+                    <td class="py-3 px-2 text-right font-mono text-slate-600">${row.est_nav.toFixed(4)}</td>
+                    <td class="py-3 px-2 text-right">
+                        <span class="inline-block px-2 py-0.5 rounded text-sm font-bold ${premiumBg(row.premium)} ${premiumClass(row.premium)}">${row.premium > 0 ? '+' : ''}${row.premium.toFixed(2)}%</span>
+                    </td>
+                    <td class="py-3 px-2"><span class="tag ${st.class}">${st.text}</span></td>
+                    <td class="py-3 px-2 text-xs ${strat.class}">${strat.text}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sortBy(key) {
+            if (sortKey === key) {
+                sortDesc = !sortDesc;
+            } else {
+                sortKey = key;
+                sortDesc = true;
+            }
+            currentData.sort((a, b) => {
+                let av = a[key], bv = b[key];
+                return sortDesc ? bv - av : av - bv;
+            });
+            renderTable();
+        }
+
+        function filterType(type) {
+            currentFilter = type;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.type === type) {
+                    btn.classList.remove('bg-slate-100', 'text-slate-600');
+                    btn.classList.add('bg-blue-600', 'text-white');
+                } else {
+                    btn.classList.remove('bg-blue-600', 'text-white');
+                    btn.classList.add('bg-slate-100', 'text-slate-600');
+                }
+            });
+            if (type === 'all') {
+                currentData = [...fundData];
+            } else {
+                currentData = fundData.filter(d => d.type === type);
+            }
+            // Re-sort
+            currentData.sort((a, b) => b[sortKey] - a[sortKey]);
+            renderTable();
+            renderChart();
+        }
+
+        function renderTopCards() {
+            const top = fundData.filter(d => d.premium > 5).sort((a,b) => b.premium - a.premium).slice(0, 3);
+            const container = document.getElementById('top-cards');
+            container.innerHTML = top.map((row, i) => {
+                const st = getStatus(row.code);
+                const strat = getStrategy(row);
+                return `
+                <div class="bg-white rounded-xl border border-slate-200 p-5 card-hover relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-50 to-transparent rounded-bl-full"></div>
+                    <div class="relative">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs text-slate-500 font-mono">${row.code}</span>
+                            <span class="tag ${row.type === 'ETF' ? 'tag-etf' : 'tag-lof'}">${row.type}</span>
+                        </div>
+                        <h3 class="font-bold text-slate-900 mb-1">${row.name}</h3>
+                        <p class="text-xs text-slate-500 mb-3">跟踪：${row.track}</p>
+                        <div class="flex items-end justify-between">
+                            <div>
+                                <p class="text-3xl font-bold ${premiumClass(row.premium)}">${row.premium > 0 ? '+' : ''}${row.premium.toFixed(2)}%</p>
+                                <p class="text-xs text-slate-500 mt-1">估算溢价率</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="tag ${st.class} text-xs">${st.text}</span>
+                                <p class="text-xs ${strat.class} mt-1">${strat.text}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-slate-100 flex justify-between text-xs text-slate-500">
+                            <span>收盘价: ${row.close.toFixed(3)}</span>
+                            <span>估算净值: ${row.est_nav.toFixed(4)}</span>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        function renderChart() {
+            const chartDom = document.getElementById('chart-premium');
+            const myChart = echarts.init(chartDom);
+            const data = [...currentData].sort((a,b) => b.premium - a.premium);
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    formatter: function(params) {
+                        const d = params[0].data;
+                        return `<div class="font-sans">
+                            <div class="font-bold">${d.name} (${d.code})</div>
+                            <div>类型: ${d.type}</div>
+                            <div>收盘价: ${d.close}</div>
+                            <div>估算净值: ${d.est_nav}</div>
+                            <div class="font-bold mt-1">溢价率: ${d.premium > 0 ? '+' : ''}${d.premium}%</div>
+                        </div>`;
+                    }
+                },
+                grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+                xAxis: {
+                    type: 'category',
+                    data: data.map(d => d.name),
+                    axisLabel: { rotate: 45, fontSize: 11, color: '#64748b' },
+                    axisLine: { lineStyle: { color: '#e2e8f0' } }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: '溢价率 (%)',
+                    nameTextStyle: { color: '#64748b', fontSize: 12 },
+                    axisLabel: { formatter: '{value}%', color: '#64748b' },
+                    splitLine: { lineStyle: { color: '#f1f5f9' } }
+                },
+                series: [{
+                    name: '溢价率',
+                    type: 'bar',
+                    data: data.map(d => ({
+                        value: d.premium,
+                        name: d.name,
+                        code: d.code,
+                        type: d.type,
+                        close: d.close,
+                        est_nav: d.est_nav,
+                        itemStyle: {
+                            color: d.premium > 15 ? '#dc2626' : d.premium > 5 ? '#ea580c' : d.premium < 0 ? '#16a34a' : '#3b82f6'
+                        }
+                    })),
+                    barWidth: '60%',
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: '{c}%',
+                        fontSize: 11,
+                        color: '#64748b'
+                    }
+                }]
+            };
+            myChart.setOption(option);
+            window.addEventListener('resize', () => myChart.resize());
+        }
+
+        // Init
+        currentData.sort((a,b) => b.premium - a.premium);
+        renderTopCards();
+        renderTable();
+        renderChart();
+    </script>
+</body>
+</html>
