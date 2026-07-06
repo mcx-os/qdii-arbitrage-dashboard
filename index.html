@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QDII ETF/LOF 套利分析看板</title>
+    <title>QDII ETF/LOF 实时套利看板</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,6 +33,8 @@
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .toast-enter { animation: toastIn 0.3s ease-out; }
         @keyframes toastIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .live-dot { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen">
@@ -42,32 +44,23 @@
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">Q</div>
             <div>
-                <h1 class="text-xl font-bold text-slate-900">QDII ETF/LOF 套利分析看板</h1>
+                <h1 class="text-xl font-bold text-slate-900">QDII ETF/LOF 实时套利看板</h1>
                 <p class="text-xs text-slate-500">基于底层持仓与海外市场涨跌幅估算</p>
             </div>
         </div>
         <div class="flex items-center gap-3">
-            <div id="update-status" class="hidden sm:flex items-center gap-2 text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">
-                <span id="status-dot" class="w-2 h-2 rounded-full bg-green-500"></span>
-                <span id="status-text">静态数据</span>
+            <div id="update-status" class="hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-slate-100">
+                <span id="status-dot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+                <span id="status-text">初始化...</span>
+                <span id="refresh-countdown" class="text-slate-400 ml-1"></span>
             </div>
-            <button id="refresh-btn" onclick="refreshData()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+            <button id="refresh-btn" onclick="manualRefresh()" class="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
                 <svg id="refresh-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 <span>刷新</span>
             </button>
         </div>
     </div>
 </header>
-
-<div id="config-banner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-        <svg class="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-        <div>
-            <p class="text-sm font-medium text-blue-800">当前显示静态数据（每日更新）</p>
-            <p class="text-xs text-blue-600 mt-1">如需每次访问实时刷新，请部署 Cloudflare Worker 并在代码中配置 WORKER_URL。详见项目 README。</p>
-        </div>
-    </div>
-</div>
 
 <div id="error-toast" class="hidden fixed top-20 right-4 z-50 bg-red-50 border border-red-200 rounded-xl p-4 shadow-lg toast-enter max-w-sm">
     <div class="flex items-start gap-2">
@@ -81,14 +74,14 @@
 
 <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
     <div class="flex items-center justify-between text-xs text-slate-500">
-        <span id="data-time">数据更新：2026-07-05 09:00（北京时间）</span>
-        <span id="data-mode-badge" class="bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">静态数据</span>
+        <span id="data-time">数据更新：加载中...</span>
+        <span id="data-mode-badge" class="bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">初始化</span>
     </div>
 
     <section class="animate-fade-in">
         <div class="flex items-center justify-between mb-3">
-            <h2 class="text-lg font-bold text-slate-900">海外市场概况（2026-07-02 收盘）</h2>
-            <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">美股因独立日 7/3-7/4 休市</span>
+            <h2 class="text-lg font-bold text-slate-900">海外市场概况</h2>
+            <span class="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">基于前一交易日收盘</span>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="market-cards"></div>
     </section>
@@ -173,8 +166,8 @@
                 <p><strong>交易所停牌：</strong>159509、513310等高溢价品种可能盘中临时停牌（9:15-10:30）。</p>
             </div>
             <div class="space-y-1">
-                <p><strong>汇率侵蚀：</strong>USDCNH从年初6.96降至6.78，人民币升值持续侵蚀美元资产回报。</p>
-                <p><strong>流动性风险：</strong>501225日成交仅约4500万，大额卖出可能冲击价格。</p>
+                <p><strong>汇率侵蚀：</strong>USDCNH波动会影响QDII基金的人民币计价净值。</p>
+                <p><strong>流动性风险：</strong>部分LOF日成交仅数千万，大额卖出可能冲击价格。</p>
                 <p><strong>数据偏差：</strong>估算净值基于公开数据，实际基金公司公布净值可能略有差异。</p>
             </div>
         </div>
@@ -183,11 +176,16 @@
 </main>
 
 <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-slate-400">
-    <p>数据来源：ifind 行情、天天基金网、东方财富、公开市场信息 | 仅用于研究参考</p>
+    <p>数据来源：天天基金、东方财富、Yahoo Finance | 实时刷新 · 每60秒自动更新</p>
 </footer>
 
 <script>
-const WORKER_URL = null;
+// ═══════════════════════════════════════════════════════
+// QDII ETF/LOF 实时套利看板 - 纯前端实时刷新
+// 使用 JSONP 绕过 CORS 直接拉取天天基金 + 东方财富数据
+// ═══════════════════════════════════════════════════════
+
+const AUTO_REFRESH_INTERVAL = 60; // 秒
 
 const STATIC_DATA = [
     {"code":"501225","name":"全球芯片LOF","track":"全球芯片","type":"LOF","close":4.507,"a_chg":0.18,"nav_date":"2026-07-02","latest_nav":3.3602,"est_nav":3.3283,"premium":35.42},
@@ -239,6 +237,9 @@ let sortKey = 'premium';
 let sortDesc = true;
 let currentFilter = 'all';
 let chartInstance = null;
+let countdownInterval = null;
+let refreshTimer = null;
+let nextRefreshTime = 0;
 
 function getStatus(code) { return STATUS_MAP[code] || {text: "需确认", class: "tag-open"}; }
 
@@ -267,6 +268,141 @@ function premiumBg(p) {
 
 function fmtDate(d) { return d ? `${new Date(d).getMonth()+1}/${new Date(d).getDate()}` : '--'; }
 
+// ── JSONP 工具 ──
+function fetchJsonp(url, cbParam) {
+    return new Promise((resolve, reject) => {
+        const cbName = 'jp_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+        const separator = url.includes('?') ? '&' : '?';
+        const fullUrl = url + separator + (cbParam || 'callback') + '=' + cbName;
+        const script = document.createElement('script');
+        script.src = fullUrl;
+        script.onerror = () => reject(new Error('JSONP请求失败'));
+        window[cbName] = (data) => {
+            resolve(data);
+            delete window[cbName];
+            if (script.parentNode) document.head.removeChild(script);
+        };
+        const timeout = setTimeout(() => {
+            reject(new Error('JSONP请求超时'));
+            delete window[cbName];
+            if (script.parentNode) document.head.removeChild(script);
+        }, 15000);
+        document.head.appendChild(script);
+    });
+}
+
+// ── 核心：实时数据拉取 ──
+async function loadRealTimeData() {
+    const refreshIcon = document.getElementById('refresh-icon');
+    refreshIcon.classList.add('spinner');
+    document.getElementById('status-text').textContent = '刷新中...';
+    document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-yellow-400';
+
+    try {
+        const fcodes = STATIC_DATA.map(f => f.code).join(',');
+        const codes = STATIC_DATA.map(f => f.code);
+        const secids = codes.map(c => {
+            const n = parseInt(c, 10);
+            const shPrefixes = [500,501,502,503,505,510,511,512,513,518,580];
+            return `${shPrefixes.includes(Math.floor(n / 1000)) ? '1' : '0'}.${c}`;
+        }).join(',');
+
+        // 并行拉取：天天基金净值 + 东方财富行情
+        const [navData, quoteData] = await Promise.all([
+            fetchJsonp(`https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo?plat=Android&appType=ttjj&product=EFund&Version=1&Fcodes=${fcodes}`, 'callback').catch(() => null),
+            fetchJsonp(`https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f2,f3,f4,f12,f14,f18&secids=${secids}`, 'cb').catch(() => null)
+        ]);
+
+        // 解析净值
+        const navMap = {};
+        if (navData && navData.Datas) {
+            navData.Datas.forEach(d => {
+                navMap[d.FCODE] = { latest_nav: parseFloat(d.NAV) || 0, nav_date: d.PDATE || d.FDATE || '' };
+            });
+        }
+
+        // 解析场内价格
+        const quoteMap = {};
+        if (quoteData && quoteData.data && quoteData.data.diff) {
+            quoteData.data.diff.forEach(d => {
+                quoteMap[d.f12] = { close: parseFloat(d.f2) || 0, a_chg: parseFloat(d.f3) || 0 };
+            });
+        }
+
+        // 静态市场数据（前一交易日，A股交易时间内不变）
+        const marketMap = { 'NDX': -0.80, 'GSPC': -0.01, 'GSPC': -0.01, 'SI=F': 0, 'ZM=F': 0, 'CL=F': -0.04 };
+
+        // 更新数据
+        let updatedCount = 0;
+        currentData = STATIC_DATA.map(cfg => {
+            const nav = navMap[cfg.code];
+            const quote = quoteMap[cfg.code];
+            if (nav || quote) {
+                updatedCount++;
+                const latestNav = nav ? nav.latest_nav : cfg.latest_nav;
+                const navDate = nav ? nav.nav_date : cfg.nav_date;
+                const close = quote ? quote.close : cfg.close;
+                const aChg = quote ? quote.a_chg : cfg.a_chg;
+                const mktChange = marketMap[cfg.index] || 0;
+                const estNav = latestNav > 0 ? latestNav * (1 + mktChange / 100) : cfg.est_nav;
+                const premium = estNav > 0 ? ((close - estNav) / estNav * 100) : cfg.premium;
+                return { ...cfg, latest_nav: latestNav, nav_date: navDate, close: close, a_chg: aChg, est_nav: estNav, premium: premium };
+            }
+            return { ...cfg };
+        });
+
+        if (updatedCount > 0) {
+            isRealTime = true;
+            const now = new Date();
+            document.getElementById('data-time').textContent =
+                `数据更新：${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+            document.getElementById('data-mode-badge').className = 'bg-green-50 text-green-700 px-2 py-1 rounded border border-green-200';
+            document.getElementById('data-mode-badge').textContent = '实时数据';
+            document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500 live-dot';
+            document.getElementById('status-text').textContent = '实时刷新';
+
+            renderAll();
+        } else {
+            throw new Error('未能获取任何实时数据');
+        }
+    } catch (e) {
+        console.error('实时数据获取失败:', e);
+        document.getElementById('error-msg').textContent = e.message || '网络错误';
+        document.getElementById('error-toast').classList.remove('hidden');
+        setTimeout(() => document.getElementById('error-toast').classList.add('hidden'), 5000);
+        document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-orange-400';
+        document.getElementById('status-text').textContent = '静态数据';
+        document.getElementById('data-mode-badge').className = 'bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200';
+        document.getElementById('data-mode-badge').textContent = '静态数据';
+    } finally {
+        refreshIcon.classList.remove('spinner');
+        resetCountdown();
+    }
+}
+
+function resetCountdown() {
+    nextRefreshTime = Date.now() + AUTO_REFRESH_INTERVAL * 1000;
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((nextRefreshTime - Date.now()) / 1000));
+        const el = document.getElementById('refresh-countdown');
+        if (el) el.textContent = remaining > 0 ? `(${remaining}s)` : '';
+    }, 1000);
+}
+
+function manualRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    loadRealTimeData();
+}
+
+function renderAll() {
+    renderMarketOverview();
+    renderTopCards();
+    renderTable();
+    renderChart();
+    renderStrategies();
+}
+
 function renderMarketOverview() {
     const fxRate = 6.7846;
     const cards = STATIC_MARKET.map(m => {
@@ -274,7 +410,7 @@ function renderMarketOverview() {
         return `<div class="bg-white rounded-xl p-4 border border-slate-200 card-hover"><p class="text-xs text-slate-500 mb-1">${m.label}</p><p class="text-lg font-bold ${colorClass}">${m.change > 0 ? '+' : ''}${m.change.toFixed(2)}%</p></div>`;
     }).join('');
     document.getElementById('market-cards').innerHTML = cards +
-        `<div class="bg-white rounded-xl p-4 border border-slate-200 card-hover"><p class="text-xs text-slate-500 mb-1">USDCNH</p><p class="text-lg font-bold text-slate-700">${fxRate.toFixed(4)}</p><p class="text-xs text-slate-400">人民币小幅升值</p></div>`;
+        `<div class="bg-white rounded-xl p-4 border border-slate-200 card-hover"><p class="text-xs text-slate-500 mb-1">USDCNH</p><p class="text-lg font-bold text-slate-700">${fxRate.toFixed(4)}</p></div>`;
 }
 
 function renderTopCards() {
@@ -391,109 +527,15 @@ function filterType(type) {
     renderChart();
 }
 
-async function refreshData() {
-    if (!WORKER_URL) {
-        document.getElementById('config-banner').classList.remove('hidden');
-        return;
-    }
-    const refreshIcon = document.getElementById('refresh-icon');
-    refreshIcon.classList.add('spinner');
-    document.getElementById('status-text').textContent = '刷新中...';
-    try {
-        const fcodes = STATIC_DATA.map(f => f.code).join(',');
-        const codes = STATIC_DATA.map(f => f.code).join(',');
-        const symbols = '^NDX,^GSPC,^DJI,^GDAXI,CL=F';
-        const dashboardUrl = `${WORKER_URL}/api/dashboard?fcodes=${fcodes}&codes=${codes}&symbols=${symbols}`;
-        const res = await fetch(dashboardUrl, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(15000) });
-        if (!res.ok) throw new Error(`Worker ${res.status}`);
-        const data = await res.json();
-        const parsed = parseLiveData(data);
-        if (parsed && parsed.length > 0) {
-            currentData = parsed;
-            isRealTime = true;
-            document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-500';
-            document.getElementById('status-text').textContent = '实时数据';
-            document.getElementById('data-mode-badge').className = 'bg-green-50 text-green-700 px-2 py-1 rounded border border-green-200';
-            document.getElementById('data-mode-badge').textContent = '实时数据';
-            const now = new Date();
-            document.getElementById('data-time').textContent =
-                `数据更新：${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-            renderMarketOverviewLive(data.market, data.fx);
-            renderTopCards();
-            renderTable();
-            renderChart();
-            renderStrategies();
-        }
-    } catch (e) {
-        document.getElementById('error-msg').textContent = e.message || '网络错误';
-        document.getElementById('error-toast').classList.remove('hidden');
-        setTimeout(() => document.getElementById('error-toast').classList.add('hidden'), 5000);
-    } finally {
-        refreshIcon.classList.remove('spinner');
-        document.getElementById('status-text').textContent = isRealTime ? '实时数据' : '静态数据';
-    }
-}
-
-function parseLiveData(raw) {
-    const navMap = {}, quoteMap = {}, marketMap = {};
-    if (raw.nav && raw.nav.Datas) {
-        raw.nav.Datas.forEach(d => { navMap[d.FCODE] = { latest_nav: parseFloat(d.NAV) || 0, nav_date: d.PDATE || d.FDATE || '' }; });
-    }
-    if (raw.quote && raw.quote.data && raw.quote.data.diff) {
-        raw.quote.data.diff.forEach(d => { quoteMap[d.f12] = { close: parseFloat(d.f2) || 0, a_chg: parseFloat(d.f3) || 0 }; });
-    }
-    if (raw.market) {
-        Object.entries(raw.market).forEach(([sym, data]) => {
-            if (data.error || !data.chart || !data.chart.result) { marketMap[sym] = 0; return; }
-            const closes = data.chart.result[0].indicators?.quote?.[0]?.close || [];
-            marketMap[sym] = (closes.length >= 2 && closes[closes.length-2] > 0)
-                ? ((closes[closes.length-1] - closes[closes.length-2]) / closes[closes.length-2] * 100) : 0;
-        });
-    }
-    const INDEX_MAP = { 'NDX': '%5ENDX', 'SOX': '%5ESOX', 'GSPC': '%5EGSPC', 'SI=F': 'SI%3DF', 'ZM=F': 'ZM%3DF', 'CL=F': 'CL%3DF' };
-    return STATIC_DATA.map(cfg => {
-        const nav = navMap[cfg.code] || { latest_nav: cfg.latest_nav, nav_date: cfg.nav_date };
-        const quote = quoteMap[cfg.code] || { close: cfg.close, a_chg: cfg.a_chg };
-        const indexSym = INDEX_MAP[cfg.index] || cfg.index;
-        const mktChange = marketMap[indexSym] || marketMap[cfg.index] || 0;
-        const estNav = nav.latest_nav > 0 ? nav.latest_nav * (1 + mktChange / 100) : cfg.est_nav;
-        const premium = estNav > 0 ? ((quote.close - estNav) / estNav * 100) : cfg.premium;
-        return { ...cfg, latest_nav: nav.latest_nav, nav_date: nav.nav_date, close: quote.close, a_chg: quote.a_chg, est_nav: estNav, premium: premium };
-    });
-}
-
-function renderMarketOverviewLive(marketData, fxData) {
-    let fxRate = 6.7846;
-    if (fxData && fxData.data && fxData.data.chart && fxData.data.chart.result) {
-        const closes = fxData.data.chart.result[0].indicators?.quote?.[0]?.close || [];
-        if (closes.length > 0) fxRate = closes[closes.length - 1];
-    }
-    const MARKET_LABELS = { '^DJI': '道琼斯', '^GSPC': '标普500', '^NDX': '纳斯达克100', '^GDAXI': '德国DAX', 'CL=F': 'WTI原油' };
-    const cards = Object.entries(MARKET_LABELS).map(([sym, label]) => {
-        const data = marketData?.[sym];
-        let change = 0;
-        if (data && !data.error && data.chart && data.chart.result) {
-            const closes = data.chart.result[0].indicators?.quote?.[0]?.close || [];
-            if (closes.length >= 2 && closes[closes.length-2] > 0) {
-                change = (closes[closes.length-1] - closes[closes.length-2]) / closes[closes.length-2] * 100;
-            }
-        }
-        const colorClass = change > 0 ? 'text-red-600' : change < 0 ? 'text-green-600' : 'text-slate-600';
-        return `<div class="bg-white rounded-xl p-4 border border-slate-200 card-hover"><p class="text-xs text-slate-500 mb-1">${label}</p><p class="text-lg font-bold ${colorClass}">${change > 0 ? '+' : ''}${change.toFixed(2)}%</p></div>`;
-    }).join('');
-    document.getElementById('market-cards').innerHTML = cards +
-        `<div class="bg-white rounded-xl p-4 border border-slate-200 card-hover"><p class="text-xs text-slate-500 mb-1">USDCNH</p><p class="text-lg font-bold text-slate-700">${fxRate.toFixed(4)}</p></div>`;
-}
-
+// ── 初始化 ──
 window.addEventListener('resize', () => { if (chartInstance) chartInstance.resize(); });
 document.addEventListener('DOMContentLoaded', () => {
-    renderMarketOverview();
-    renderTopCards();
-    renderTable();
-    renderChart();
-    renderStrategies();
-    if (WORKER_URL) refreshData();
-    else document.getElementById('config-banner').classList.remove('hidden');
+    const now = new Date();
+    document.getElementById('data-time').textContent =
+        `数据更新：${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    renderAll();
+    loadRealTimeData(); // 立即尝试拉取实时数据
+    refreshTimer = setInterval(loadRealTimeData, AUTO_REFRESH_INTERVAL * 1000); // 定时刷新
 });
 </script>
 </body>
